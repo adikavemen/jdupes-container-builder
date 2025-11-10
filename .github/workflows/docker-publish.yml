@@ -1,0 +1,30 @@
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone jdupes Codeberg repo
+        id: clone
+        run: |
+          git clone https://codeberg.org/jbruchon/jdupes.git
+          cd jdupes
+          git fetch --tags
+          LATEST_TAG=$(git tag --sort=-creatordate | head -n 1)
+          git checkout $LATEST_TAG
+          echo "TAG=$LATEST_TAG" >> $GITHUB_OUTPUT
+
+      - name: Check image exists
+        id: image_exists
+        run: |
+          if curl --fail -s -o /dev/null https://hub.docker.com/v2/repositories/adidude/jdupes/tags/${{ steps.clone.outputs.TAG }}; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Build and push Docker image
+        if: steps.image_exists.outputs.exists == 'false'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./jdupes
+          push: true
+          tags: adidude/jdupes:${{ steps.clone.outputs.TAG }}
